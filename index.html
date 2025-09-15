@@ -44,8 +44,6 @@
         .sidebar h2 { text-align: center; color: var(--primary-color); }
         .menu-item { display: flex; align-items: center; padding: 15px; font-size: 17px; color: var(--text-secondary); text-decoration: none; border-radius: 8px; margin-bottom: 10px; cursor: pointer; transition: background-color 0.3s, color 0.3s; }
         .menu-item.active, .menu-item:hover { background-color: var(--primary-color); color: var(--text-primary); }
-        .menu-item img { width: 24px; height: 24px; margin-right: 15px; filter: invert(70%); }
-        .menu-item.active img, .menu-item:hover img { filter: invert(100%); }
         .logout-button { width: 100%; margin-top: auto; background-color: var(--danger-color); color: white; }
         .logout-button:hover { background-color: #ff3a3d; transform: translateY(-2px); }
         .main-content { flex-grow: 1; padding: 40px; overflow-y: auto; }
@@ -71,11 +69,25 @@
         .status-success { background-color: rgba(52, 199, 89, 0.2); color: var(--success-color); }
         .status-fail { background-color: rgba(255, 77, 79, 0.2); color: var(--danger-color); }
         .status-info { background-color: rgba(58, 123, 253, 0.2); color: var(--primary-color); }
-        #scan-frame {
-            position: absolute; top: 50%; left: 50%;
-            width: 85%; height: 55%; transform: translate(-50%, -50%);
-            border: 3px solid var(--success-color); box-shadow: 0 0 20px rgba(52, 199, 89, 0.5);
-            border-radius: 10px; display: none;
+        
+        /* == KEY ADDITION: Styling for the scanning laser == */
+        #scan-laser {
+            position: absolute;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: var(--danger-color);
+            box-shadow: 0 0 10px var(--danger-color);
+            display: none;
+        }
+        #scan-laser.scanning {
+            display: block;
+            animation: scanAnimation 2s infinite linear;
+        }
+        @keyframes scanAnimation {
+            0% { top: 0%; }
+            50% { top: 100%; }
+            100% { top: 0%; }
         }
     </style>
 </head>
@@ -144,7 +156,7 @@
                         <div>
                            <div id="reg-video-container">
                                 <video id="reg-video" autoplay playsinline muted></video>
-                                <div id="scan-frame"></div>
+                                <div id="scan-laser"></div>
                            </div>
                            <div id="reg-status" class="status-message status-info" style="display: none;"></div>
                            <div style="display: flex; gap: 10px; margin-top: 15px;">
@@ -237,18 +249,15 @@
     </div>
 
     <script>
-        // --- UTILITY FUNCTIONS ---
         const getFromLS = (key, defaultValue = []) => JSON.parse(localStorage.getItem(key)) || defaultValue;
         const setToLS = (key, data) => localStorage.setItem(key, JSON.stringify(data));
         const getSettings = () => JSON.parse(localStorage.getItem('settings')) || {};
 
-        // --- GLOBAL VARIABLES ---
         let capturedVoterFaceDescriptor = null, capturedOfficialFaceDescriptor = null;
         let voterFaceMatcher = null, officialFaceMatcher = null;
         let videoStream = null, regVideoStream = null;
         let nidScanInterval = null;
 
-        // --- INITIALIZATION ---
         document.addEventListener('DOMContentLoaded', async () => {
             document.getElementById('report-date').valueAsDate = new Date();
             console.log("Loading Face-API models...");
@@ -259,11 +268,10 @@
                     faceapi.nets.faceRecognitionNet.loadFromUri('https://cdn.jsdelivr.net/gh/cgarciagl/face-api.js@0.22.2/weights')
                 ]);
                 console.log("Face-API models loaded successfully");
-            } catch (error) { console.error("Error loading Face-API models:", error); alert("Could not load face recognition models."); }
+            } catch (error) { console.error("Error loading Face-API models:", error); alert("Could not load models."); }
             checkLoginState();
         });
 
-        // --- AUTHENTICATION ---
         function checkLoginState() {
             if (localStorage.getItem('isAdminLoggedIn') === 'true') showDashboard();
             else {
@@ -284,7 +292,6 @@
             checkLoginState();
         });
 
-        // --- SPA NAVIGATION & PAGE HANDLING ---
         function showDashboard() {
             document.getElementById('login-view').style.display = 'none';
             document.getElementById('dashboard-view').style.display = 'flex';
@@ -293,8 +300,7 @@
             startCamera('video-feed', 'video-overlay');
         }
         function showPage(pageId) {
-            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-            document.querySelectorAll('.menu-item').forEach(i => i.classList.remove('active'));
+            document.querySelectorAll('.page, .menu-item').forEach(el => el.classList.remove('active'));
             document.getElementById(pageId).classList.add('active');
             document.querySelector(`.menu-item[onclick="showPage('${pageId}')"]`).classList.add('active');
             stopAllStreams();
@@ -316,10 +322,10 @@
                 const scanBtn = document.getElementById('scan-nid-btn');
                 scanBtn.textContent = '2. Scan NID';
                 scanBtn.style.backgroundColor = '';
+                document.getElementById('scan-laser').classList.remove('scanning');
             }
         }
 
-        // --- ALARM SYSTEM ---
         function triggerAlarm() {
             document.getElementById('alarm-sound').play().catch(e => console.error("Alarm play failed:", e));
             document.getElementById('stop-alarm-btn').style.display = 'block';
@@ -331,7 +337,6 @@
             document.getElementById('stop-alarm-btn').style.display = 'none';
         }
 
-        // --- CAMERA & RECOGNITION ---
         async function startCamera(videoId, canvasId) {
             const isRegCam = videoId === 'reg-video';
             if ((isRegCam && regVideoStream) || (!isRegCam && videoStream)) return;
@@ -434,7 +439,6 @@
             newRow.innerHTML = `<td>${entry.name}</td><td>${entry.time}</td><td style="color: ${statusColors[entry.status] || 'white'}; font-weight: bold;">${entry.status}</td>`;
         }
         
-        // --- VOTER MANAGEMENT & VOTING FLOW ---
         async function startVoterRegistration() {
             await startCamera('reg-video');
             updateRegStatus("Camera started. Look at the camera and click 'Capture Face'.", "info");
@@ -448,66 +452,59 @@
             const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
             if (detection) {
                 capturedVoterFaceDescriptor = detection.descriptor;
-                updateRegStatus("Face captured! Position NID in the green frame and click 'Scan NID'.", "success");
+                updateRegStatus("Face captured! Now start scanning the NID.", "success");
                 document.getElementById('scan-nid-btn').disabled = false;
                 document.getElementById('capture-face-btn').disabled = true;
                 document.getElementById('voter-nid').disabled = false;
                 document.getElementById('voter-name').disabled = false;
                 document.getElementById('save-voter-btn').disabled = false;
-                document.getElementById('scan-frame').style.display = 'block';
             } else {
                 updateRegStatus("No face detected. Please try again.", "fail");
             }
         }
 
-        async function toggleNIDScan() {
+        function toggleNIDScan() {
             const scanBtn = document.getElementById('scan-nid-btn');
+            const laser = document.getElementById('scan-laser');
             if (nidScanInterval) {
                 clearInterval(nidScanInterval);
                 nidScanInterval = null;
                 scanBtn.textContent = '2. Scan NID';
                 scanBtn.style.backgroundColor = '';
+                laser.classList.remove('scanning');
                 updateRegStatus("NID scanning stopped.", "info");
             } else {
                 scanBtn.textContent = 'Stop Scan';
                 scanBtn.style.backgroundColor = 'var(--danger-color)';
-                updateRegStatus("Scanning... Hold NID steady in the frame.", "info");
+                laser.classList.add('scanning');
+                updateRegStatus("Scanning... Hold NID steady.", "info");
+                
                 nidScanInterval = setInterval(async () => {
-                    const video = document.getElementById('reg-video');
-                    const scanFrame = document.getElementById('scan-frame');
-                    if (!video.srcObject) return;
-
-                    const canvas = document.createElement('canvas');
-                    const scaleX = video.videoWidth / video.clientWidth;
-                    const scaleY = video.videoHeight / video.clientHeight;
-                    const sx = scanFrame.offsetLeft * scaleX;
-                    const sy = scanFrame.offsetTop * scaleY;
-                    const sWidth = scanFrame.offsetWidth * scaleX;
-                    const sHeight = scanFrame.offsetHeight * scaleY;
-
-                    canvas.width = sWidth;
-                    canvas.height = sHeight;
-                    canvas.getContext('2d').drawImage(video, sx, sy, sWidth, sHeight, 0, 0, sWidth, sHeight);
-
-                    const { data: { text } } = await Tesseract.recognize(canvas, 'eng');
+                    if (!regVideoStream) return;
+                    const { data: { text } } = await Tesseract.recognize(document.getElementById('reg-video'), 'eng');
                     const parsedInfo = parseNIDData(text);
-                    if (parsedInfo.name && parsedInfo.nid) {
-                        document.getElementById('voter-name').value = parsedInfo.name;
-                        document.getElementById('voter-nid').value = parsedInfo.nid;
-                        updateRegStatus("Scan successful!", "success");
-                        toggleNIDScan(); // Stop scanning
+
+                    if (document.getElementById('voter-name').value === '' && parsedInfo.name) {
+                         document.getElementById('voter-name').value = parsedInfo.name;
                     }
-                }, 2000);
+                    if (document.getElementById('voter-nid').value === '' && parsedInfo.nid) {
+                        document.getElementById('voter-nid').value = parsedInfo.nid;
+                    }
+
+                    if (document.getElementById('voter-name').value && document.getElementById('voter-nid').value) {
+                        toggleNIDScan();
+                        updateRegStatus("Scan successful! Data populated.", "success");
+                    }
+                }, 2500);
             }
         }
         
         function parseNIDData(text) {
-            console.log("--- OCR Scanned Text ---\n" + text + "\n-----------------------");
             const nameMatch = text.match(/Name\s*:\s*([A-Z\s\.]+)/i);
-            const nidMatch = text.match(/ID NO\s*[:\s]*(\d{10,})/i);
+            const nidMatch = text.match(/(\b\d{10}\b|\b\d{13}\b|\b\d{17}\b)/);
             return {
                 name: nameMatch ? nameMatch[1].trim() : null,
-                nid: nidMatch ? nidMatch[1].trim() : null
+                nid: nidMatch ? nidMatch[0].trim() : null
             };
         }
 
@@ -523,23 +520,15 @@
             const nid = document.getElementById('voter-nid').value;
             const name = document.getElementById('voter-name').value;
             if (!nid || !name) { alert("NID and Name are required!"); return; }
-
             let voters = getFromLS('voters');
             if (voters.some(v => v.nid === nid)) {
                 alert("A voter with this NID has already voted!");
                 triggerAlarm();
                 return;
             }
-            
             const now = new Date();
-            voters.push({
-                nid, name,
-                faceDescriptor: capturedVoterFaceDescriptor,
-                alreadyVoted: true,
-                registrationTime: now.toISOString()
-            });
+            voters.push({ nid, name, faceDescriptor: capturedVoterFaceDescriptor, alreadyVoted: true, registrationTime: now.toISOString() });
             setToLS('voters', voters);
-            
             alert(`Vote confirmed for ${name}!`);
             updateLiveFeed({ name, time: now.toLocaleTimeString(), status: 'Voted' });
             updateDashboardSummary();
@@ -559,7 +548,6 @@
             document.getElementById('voter-nid').disabled = true;
             document.getElementById('voter-name').disabled = true;
             document.getElementById('reg-status').style.display = 'none';
-            document.getElementById('scan-frame').style.display = 'none';
             if (document.getElementById('reg-video')) document.getElementById('reg-video').srcObject = null;
         }
 
@@ -575,14 +563,13 @@
             });
         }
         function deleteVoter(nid) {
-            if (!confirm("Are you sure? This will delete the voter and their vote record.")) return;
+            if (!confirm("Are you sure?")) return;
             setToLS('voters', getFromLS('voters').filter(v => v.nid !== nid));
             loadVotersIntoTable();
             loadRegisteredFaces();
             updateDashboardSummary();
         }
 
-        // --- OFFICIAL MANAGEMENT ---
         async function openCaptureModal() {
             document.getElementById('capture-modal').style.display = 'flex';
             const video = document.getElementById('capture-video');
@@ -606,7 +593,7 @@
         document.getElementById('add-official-form').addEventListener('submit', (e) => {
             e.preventDefault();
             const id = document.getElementById('official-id').value;
-            if (!id) { alert("Official ID is required!"); return; }
+            if (!id || !document.getElementById('official-name').value) { alert("ID and Name are required!"); return; }
             if (!capturedOfficialFaceDescriptor) { alert("Please capture a photo."); return; }
             let officials = getFromLS('officials');
             if (officials.some(o => o.id === id)) { alert("Official ID already exists!"); return; }
@@ -637,7 +624,6 @@
             updateDashboardSummary();
         }
 
-        // --- REPORTS & EXPORT ---
         let reportData = [];
         function generateReport() {
             const reportType = document.getElementById('report-type').value;
@@ -682,7 +668,6 @@
             doc.save('Report.pdf');
         }
         
-        // --- SETTINGS ---
         document.getElementById('settings-form').addEventListener('submit', (e) => {
             e.preventDefault();
             setToLS('settings', {
