@@ -71,26 +71,17 @@
         .status-success { background-color: rgba(52, 199, 89, 0.2); color: var(--success-color); }
         .status-fail { background-color: rgba(255, 77, 79, 0.2); color: var(--danger-color); }
         .status-info { background-color: rgba(58, 123, 253, 0.2); color: var(--primary-color); }
-        /* == KEY ADDITION: Styling for the green scanning frame == */
         #scan-frame {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            width: 85%;
-            height: 55%;
-            transform: translate(-50%, -50%);
-            border: 3px solid var(--success-color);
-            box-shadow: 0 0 20px rgba(52, 199, 89, 0.5);
-            border-radius: 10px;
-            display: none; /* Initially hidden */
+            position: absolute; top: 50%; left: 50%;
+            width: 85%; height: 55%; transform: translate(-50%, -50%);
+            border: 3px solid var(--success-color); box-shadow: 0 0 20px rgba(52, 199, 89, 0.5);
+            border-radius: 10px; display: none;
         }
     </style>
 </head>
 <body>
-    <!-- ALARM SOUND -->
     <audio id="alarm-sound" src="https://www.soundjay.com/buttons/beep-01a.mp3" preload="auto"></audio>
 
-    <!-- Modal for Official Photo Capture -->
     <div id="capture-modal" class="modal">
         <div class="modal-content">
             <h3>Capture Official's Photo</h3>
@@ -101,7 +92,6 @@
         </div>
     </div>
 
-    <!-- =========== LOGIN VIEW =========== -->
     <div id="login-view">
         <div class="login-container">
             <h1>Voting System Login</h1>
@@ -111,20 +101,18 @@
         </div>
     </div>
 
-    <!-- =========== DASHBOARD VIEW =========== -->
     <div id="dashboard-view" style="display: none;">
         <div class="sidebar">
             <h2 id="sidebar-org-name">Polling Station</h2>
-            <a class="menu-item active" onclick="showPage('dashboard-page')"><img src="https://api.iconify.design/ic:round-dashboard.svg"> Dashboard</a>
-            <a class="menu-item" onclick="showPage('voter-page')"><img src="https://api.iconify.design/ic:round-group.svg"> Voter Management</a>
-            <a class="menu-item" onclick="showPage('official-page')"><img src="https://api.iconify.design/ic:sharp-people-alt.svg"> Official Management</a>
-            <a class="menu-item" onclick="showPage('reports-page')"><img src="https://api.iconify.design/ic:round-bar-chart.svg"> Voting Reports</a>
-            <a class="menu-item" onclick="showPage('settings-page')"><img src="https://api.iconify.design/ic:round-settings.svg"> Settings</a>
+            <a class="menu-item active" onclick="showPage('dashboard-page')">Dashboard</a>
+            <a class="menu-item" onclick="showPage('voter-page')">Voter Management</a>
+            <a class="menu-item" onclick="showPage('official-page')">Official Management</a>
+            <a class="menu-item" onclick="showPage('reports-page')">Voting Reports</a>
+            <a class="menu-item" onclick="showPage('settings-page')">Settings</a>
             <button class="btn logout-button" id="logout-btn">Logout</button>
         </div>
 
         <div class="main-content">
-            <!-- 1️⃣ Dashboard Page -->
             <div id="dashboard-page" class="page active">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
                     <h1>Dashboard</h1>
@@ -136,22 +124,18 @@
                     <div class="summary-card card"><h4>Registered Today</h4><p id="registered-today-count">0</p></div>
                     <div class="summary-card card"><h4>Official Entries Today</h4><p id="official-entries-count">0</p></div>
                 </div>
-                
                 <div class="dashboard-grid">
                     <div class="card"><h3>Live Duplicate Check Feed</h3>
                         <div id="video-container"><video id="video-feed" autoplay playsinline muted></video><canvas id="video-overlay"></canvas></div>
                     </div>
                     <div class="card"><h3>Live Feed (Today)</h3>
                         <div id="live-list-container" style="max-height: 450px; overflow-y: auto;">
-                            <table id="live-feed-table">
-                                <thead><tr><th>Name</th><th>Time</th><th>Status</th></tr></thead><tbody></tbody>
-                            </table>
+                            <table id="live-feed-table"><thead><tr><th>Name</th><th>Time</th><th>Status</th></tr></thead><tbody></tbody></table>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- 2️⃣ Voter Management Page -->
             <div id="voter-page" class="page">
                 <h1>Voter Registration & Voting</h1>
                 <div class="card">
@@ -166,7 +150,7 @@
                            <div style="display: flex; gap: 10px; margin-top: 15px;">
                                <button id="start-reg-btn" class="btn btn-primary" onclick="startVoterRegistration()">Start Registration</button>
                                <button id="capture-face-btn" class="btn" onclick="captureVoterFace()" disabled>1. Capture Face</button>
-                               <button id="scan-nid-btn" class="btn" onclick="scanVoterNID()" disabled>2. Capture NID</button>
+                               <button id="scan-nid-btn" class="btn" onclick="toggleNIDScan()" disabled>2. Scan NID</button>
                            </div>
                         </div>
                         <div>
@@ -183,7 +167,6 @@
                 </div>
             </div>
 
-            <!-- 3️⃣ Official Management Page -->
             <div id="official-page" class="page">
                  <h1>Official Management</h1>
                 <div class="card"><h3>Add/Edit Official</h3>
@@ -204,7 +187,6 @@
                 </div>
             </div>
             
-            <!-- 4️⃣ Reports Page -->
             <div id="reports-page" class="page">
                  <h1>Voting Reports</h1>
                 <div class="card"><h3>Filter Reports</h3>
@@ -221,7 +203,6 @@
                 <div class="card"><h3>Report Data</h3><table id="report-table"><thead></thead><tbody></tbody></table></div>
             </div>
 
-            <!-- 5️⃣ Settings Page -->
             <div id="settings-page" class="page">
                 <h1>Settings</h1>
                 <form id="settings-form">
@@ -243,7 +224,7 @@
                                 <option value="https://www.soundjay.com/misc/sounds/siren-01.mp3">Siren</option>
                             </select>
                         </div>
-                        <div class="input-group"><label for="face-threshold">Face Recognition Sensitivity (lower is stricter)</label><input type="range" id="face-threshold" min="40" max="70" value="55"></div>
+                        <div class="input-group"><label for="face-threshold">Face Recognition Sensitivity</label><input type="range" id="face-threshold" min="40" max="70" value="55"></div>
                     </div>
                      <div class="card"><h3>Developer Info</h3>
                         <div class="input-group"><label>Software by</label><input type="text" value="Arpan Ghosh" readonly></div>
@@ -262,12 +243,10 @@
         const getSettings = () => JSON.parse(localStorage.getItem('settings')) || {};
 
         // --- GLOBAL VARIABLES ---
-        let capturedVoterFaceDescriptor = null;
-        let capturedOfficialFaceDescriptor = null;
-        let voterFaceMatcher = null;
-        let officialFaceMatcher = null;
-        let videoStream = null;
-        let regVideoStream = null;
+        let capturedVoterFaceDescriptor = null, capturedOfficialFaceDescriptor = null;
+        let voterFaceMatcher = null, officialFaceMatcher = null;
+        let videoStream = null, regVideoStream = null;
+        let nidScanInterval = null;
 
         // --- INITIALIZATION ---
         document.addEventListener('DOMContentLoaded', async () => {
@@ -331,6 +310,13 @@
             if (videoStream) videoStream.getTracks().forEach(track => track.stop());
             if (regVideoStream) regVideoStream.getTracks().forEach(track => track.stop());
             videoStream = regVideoStream = null;
+            if (nidScanInterval) {
+                clearInterval(nidScanInterval);
+                nidScanInterval = null;
+                const scanBtn = document.getElementById('scan-nid-btn');
+                scanBtn.textContent = '2. Scan NID';
+                scanBtn.style.backgroundColor = '';
+            }
         }
 
         // --- ALARM SYSTEM ---
@@ -351,7 +337,7 @@
             if ((isRegCam && regVideoStream) || (!isRegCam && videoStream)) return;
             
             const settings = getSettings();
-            const facingMode = isRegCam ? (settings.cameraFacingMode || 'user') : 'user';
+            const facingMode = isRegCam ? (settings.cameraFacingMode || 'environment') : 'user';
 
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode } });
@@ -414,7 +400,7 @@
                 let officialEntries = getFromLS('officialEntries');
                 const today = now.toISOString().split('T')[0];
                 const todayEntriesCount = officialEntries.filter(e => e.officialId === id && e.date === today).length;
-                const maxEntry = parseInt(getSettings().maxEntry, 10) || 5;
+                const maxEntry = 5;
                 if (todayEntriesCount >= maxEntry) {
                     triggerAlarm();
                     updateLiveFeed({ name, time: now.toLocaleTimeString(), status: 'Entry Limit Exceeded' });
@@ -462,7 +448,7 @@
             const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
             if (detection) {
                 capturedVoterFaceDescriptor = detection.descriptor;
-                updateRegStatus("Face captured! Position NID in the green frame and click 'Capture NID'.", "success");
+                updateRegStatus("Face captured! Position NID in the green frame and click 'Scan NID'.", "success");
                 document.getElementById('scan-nid-btn').disabled = false;
                 document.getElementById('capture-face-btn').disabled = true;
                 document.getElementById('voter-nid').disabled = false;
@@ -474,49 +460,51 @@
             }
         }
 
-        async function scanVoterNID() {
-            const video = document.getElementById('reg-video');
-            const scanFrame = document.getElementById('scan-frame');
-            updateRegStatus("Scanning NID from frame...", "info");
+        async function toggleNIDScan() {
+            const scanBtn = document.getElementById('scan-nid-btn');
+            if (nidScanInterval) {
+                clearInterval(nidScanInterval);
+                nidScanInterval = null;
+                scanBtn.textContent = '2. Scan NID';
+                scanBtn.style.backgroundColor = '';
+                updateRegStatus("NID scanning stopped.", "info");
+            } else {
+                scanBtn.textContent = 'Stop Scan';
+                scanBtn.style.backgroundColor = 'var(--danger-color)';
+                updateRegStatus("Scanning... Hold NID steady in the frame.", "info");
+                nidScanInterval = setInterval(async () => {
+                    const video = document.getElementById('reg-video');
+                    const scanFrame = document.getElementById('scan-frame');
+                    if (!video.srcObject) return;
 
-            const canvas = document.createElement('canvas');
-            const videoContainer = document.getElementById('reg-video-container');
-            
-            // Calculate the crop area based on the green frame's position
-            const scaleX = video.videoWidth / video.clientWidth;
-            const scaleY = video.videoHeight / video.clientHeight;
+                    const canvas = document.createElement('canvas');
+                    const scaleX = video.videoWidth / video.clientWidth;
+                    const scaleY = video.videoHeight / video.clientHeight;
+                    const sx = scanFrame.offsetLeft * scaleX;
+                    const sy = scanFrame.offsetTop * scaleY;
+                    const sWidth = scanFrame.offsetWidth * scaleX;
+                    const sHeight = scanFrame.offsetHeight * scaleY;
 
-            const sx = scanFrame.offsetLeft * scaleX;
-            const sy = scanFrame.offsetTop * scaleY;
-            const sWidth = scanFrame.offsetWidth * scaleX;
-            const sHeight = scanFrame.offsetHeight * scaleY;
+                    canvas.width = sWidth;
+                    canvas.height = sHeight;
+                    canvas.getContext('2d').drawImage(video, sx, sy, sWidth, sHeight, 0, 0, sWidth, sHeight);
 
-            canvas.width = sWidth;
-            canvas.height = sHeight;
-
-            // Draw the cropped part of the video onto the canvas
-            canvas.getContext('2d').drawImage(video, sx, sy, sWidth, sHeight, 0, 0, sWidth, sHeight);
-
-            try {
-                const { data: { text } } = await Tesseract.recognize(canvas, 'eng');
-                const parsedInfo = parseNIDData(text);
-                if (parsedInfo.name && parsedInfo.nid) {
-                    document.getElementById('voter-name').value = parsedInfo.name;
-                    document.getElementById('voter-nid').value = parsedInfo.nid;
-                    updateRegStatus("Scan successful! Data populated.", "success");
-                } else {
-                    updateRegStatus("Could not find Name/NID. Please enter manually.", "fail");
-                }
-            } catch (err) {
-                 console.error("OCR Error:", err);
-                 updateRegStatus("Scan failed. Please enter details manually.", "fail");
+                    const { data: { text } } = await Tesseract.recognize(canvas, 'eng');
+                    const parsedInfo = parseNIDData(text);
+                    if (parsedInfo.name && parsedInfo.nid) {
+                        document.getElementById('voter-name').value = parsedInfo.name;
+                        document.getElementById('voter-nid').value = parsedInfo.nid;
+                        updateRegStatus("Scan successful!", "success");
+                        toggleNIDScan(); // Stop scanning
+                    }
+                }, 2000);
             }
         }
         
         function parseNIDData(text) {
             console.log("--- OCR Scanned Text ---\n" + text + "\n-----------------------");
-            const nameMatch = text.match(/Name:\s*([A-Z\s\.]+)/i);
-            const nidMatch = text.match(/ID NO[:\s]*(\d{10,})/i);
+            const nameMatch = text.match(/Name\s*:\s*([A-Z\s\.]+)/i);
+            const nidMatch = text.match(/ID NO\s*[:\s]*(\d{10,})/i);
             return {
                 name: nameMatch ? nameMatch[1].trim() : null,
                 nid: nidMatch ? nidMatch[1].trim() : null
@@ -712,7 +700,7 @@
             document.getElementById('org-name').value = settings.orgName || 'Polling Station';
             document.getElementById('sidebar-org-name').innerText = settings.orgName || 'Polling Station';
             document.getElementById('org-address').value = settings.orgAddress || '';
-            document.getElementById('camera-mode').value = settings.cameraFacingMode || 'user';
+            document.getElementById('camera-mode').value = settings.cameraFacingMode || 'environment';
             document.getElementById('alarm-select').value = settings.alarmSound || 'https://www.soundjay.com/buttons/beep-01a.mp3';
             document.getElementById('face-threshold').value = settings.faceThreshold || '55';
             document.getElementById('alarm-sound').src = document.getElementById('alarm-select').value;
