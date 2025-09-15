@@ -11,11 +11,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <!-- FACE API JS -->
     <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
-    <!-- TESSERACT JS (FOR OCR) -->
-    <script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
-
+    
     <style>
-        /* Modern Dark Theme - Unchanged as requested */
+        /* Modern Dark Theme - Unchanged */
         :root {
             --primary-color: #3a7bfd;
             --secondary-color: #6c757d;
@@ -69,12 +67,6 @@
         .status-success { background-color: rgba(52, 199, 89, 0.2); color: var(--success-color); }
         .status-fail { background-color: rgba(255, 77, 79, 0.2); color: var(--danger-color); }
         .status-info { background-color: rgba(58, 123, 253, 0.2); color: var(--primary-color); }
-        #scan-frame {
-            position: absolute; top: 50%; left: 50%;
-            width: 85%; height: 55%; transform: translate(-50%, -50%);
-            border: 3px solid var(--success-color); box-shadow: 0 0 20px rgba(52, 199, 89, 0.5);
-            border-radius: 10px; display: none;
-        }
     </style>
 </head>
 <body>
@@ -83,7 +75,8 @@
     <div id="capture-modal" class="modal">
         <div class="modal-content">
             <h3>Capture Official's Photo</h3>
-            <video id="capture-video" autoplay playsinline style="width:100%; border-radius: 8px;"></video>
+            <!-- == KEY FIX: Changed width to max-width to prevent overflow == -->
+            <video id="capture-video" autoplay playsinline style="max-width: 100%; height: auto; border-radius: 8px;"></video>
             <p>Please look directly at the camera.</p>
             <button id="capture-btn" class="btn btn-primary">Capture</button>
             <button onclick="closeCaptureModal()" class="btn" style="background:var(--secondary-color); color:white;">Cancel</button>
@@ -140,16 +133,14 @@
                     <h3>Register New Voter</h3>
                     <div class="dashboard-grid">
                         <div>
-                           <div id="reg-video-container">
-                                <video id="reg-video" autoplay playsinline muted></video>
-                                <div id="scan-frame"></div>
-                           </div>
+                           <div id="reg-video-container"><video id="reg-video" autoplay playsinline muted></video></div>
                            <div id="reg-status" class="status-message status-info" style="display: none;"></div>
                            <div style="display: flex; gap: 10px; margin-top: 15px;">
                                <button id="start-reg-btn" class="btn btn-primary" onclick="startVoterRegistration()">Start Registration</button>
                                <button id="capture-face-btn" class="btn" onclick="captureVoterFace()" disabled>1. Capture Face</button>
-                               <button id="scan-nid-btn" class="btn" onclick="scanNIDFromFrame()" disabled>2. Capture NID from Frame</button>
+                               <button id="capture-nid-btn" class="btn" onclick="captureNIDPhoto()" disabled>2. Capture NID Photo</button>
                            </div>
+                           <div id="nid-photo-status" class="status-message status-success" style="display: none; margin-top: 10px;"></div>
                         </div>
                         <div>
                             <form id="add-voter-form">
@@ -161,7 +152,7 @@
                     </div>
                 </div>
                 <div class="card"><h3>Registered Voters List</h3><input type="text" id="voter-search" placeholder="Search by name or NID..." onkeyup="loadVotersIntoTable()">
-                    <table id="voter-list-table"><thead><tr><th>NID</th><th>Name</th><th>Registration Time</th><th>Actions</th></tr></thead><tbody></tbody></table>
+                    <table id="voter-list-table"><thead><tr><th>NID</th><th>Name</th><th>Registration Time</th><th>NID Photo</th><th>Actions</th></tr></thead><tbody></tbody></table>
                 </div>
             </div>
 
@@ -239,7 +230,7 @@
         const setToLS = (key, data) => localStorage.setItem(key, JSON.stringify(data));
         const getSettings = () => JSON.parse(localStorage.getItem('settings')) || {};
 
-        let capturedVoterFaceDescriptor = null, capturedOfficialFaceDescriptor = null;
+        let capturedVoterFaceDescriptor = null, capturedNIDPhotoData = null, capturedOfficialFaceDescriptor = null;
         let voterFaceMatcher = null, officialFaceMatcher = null;
         let videoStream = null, regVideoStream = null;
 
@@ -429,60 +420,29 @@
             const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
             if (detection) {
                 capturedVoterFaceDescriptor = detection.descriptor;
-                updateRegStatus("Face captured! Position NID in the green frame and click 'Capture NID'.", "success");
-                document.getElementById('scan-nid-btn').disabled = false;
+                updateRegStatus("Face captured! Now, capture the NID photo.", "success");
+                document.getElementById('capture-nid-btn').disabled = false;
                 document.getElementById('capture-face-btn').disabled = true;
                 document.getElementById('voter-nid').disabled = false;
                 document.getElementById('voter-name').disabled = false;
                 document.getElementById('save-voter-btn').disabled = false;
-                document.getElementById('scan-frame').style.display = 'block';
             } else {
                 updateRegStatus("No face detected. Please try again.", "fail");
             }
         }
 
-        async function scanNIDFromFrame() {
+        function captureNIDPhoto() {
             const video = document.getElementById('reg-video');
-            const scanFrame = document.getElementById('scan-frame');
-            updateRegStatus("Scanning NID from frame...", "info");
-
+            if (!video.srcObject) { alert("Camera not started!"); return; }
             const canvas = document.createElement('canvas');
-            const scaleX = video.videoWidth / video.clientWidth;
-            const scaleY = video.videoHeight / video.clientHeight;
-
-            const sx = scanFrame.offsetLeft * scaleX;
-            const sy = scanFrame.offsetTop * scaleY;
-            const sWidth = scanFrame.offsetWidth * scaleX;
-            const sHeight = scanFrame.offsetHeight * scaleY;
-
-            canvas.width = sWidth;
-            canvas.height = sHeight;
-            canvas.getContext('2d').drawImage(video, sx, sy, sWidth, sHeight, 0, 0, sWidth, sHeight);
-
-            try {
-                const { data: { text } } = await Tesseract.recognize(canvas, 'eng');
-                const parsedInfo = parseNIDData(text);
-                if (parsedInfo.name && parsedInfo.nid) {
-                    document.getElementById('voter-name').value = parsedInfo.name;
-                    document.getElementById('voter-nid').value = parsedInfo.nid;
-                    updateRegStatus("Scan successful! Data populated.", "success");
-                } else {
-                    updateRegStatus("Could not find Name/NID. Please enter manually.", "fail");
-                }
-            } catch (err) {
-                 console.error("OCR Error:", err);
-                 updateRegStatus("Scan failed. Please enter details manually.", "fail");
-            }
-        }
-        
-        function parseNIDData(text) {
-            console.log("--- OCR Scanned Text ---\n" + text + "\n-----------------------");
-            const nameMatch = text.match(/Name\s*:\s*([A-Z\s\.]+)/i);
-            const nidMatch = text.match(/ID NO\s*[:\s]*(\d{10,})/i);
-            return {
-                name: nameMatch ? nameMatch[1].trim() : null,
-                nid: nidMatch ? nidMatch[1].trim() : null
-            };
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            capturedNIDPhotoData = canvas.toDataURL('image/jpeg');
+            
+            const statusEl = document.getElementById('nid-photo-status');
+            statusEl.textContent = '✔️ NID Photo Captured!';
+            statusEl.style.display = 'block';
         }
 
         function updateRegStatus(message, type) {
@@ -497,6 +457,10 @@
             const nid = document.getElementById('voter-nid').value;
             const name = document.getElementById('voter-name').value;
             if (!nid || !name) { alert("NID and Name are required!"); return; }
+            if (!capturedVoterFaceDescriptor || !capturedNIDPhotoData) {
+                alert("Please capture both Face and NID Photo before saving.");
+                return;
+            }
 
             let voters = getFromLS('voters');
             if (voters.some(v => v.nid === nid)) {
@@ -506,12 +470,7 @@
             }
             
             const now = new Date();
-            voters.push({
-                nid, name,
-                faceDescriptor: capturedVoterFaceDescriptor,
-                alreadyVoted: true,
-                registrationTime: now.toISOString()
-            });
+            voters.push({ nid, name, faceDescriptor: capturedVoterFaceDescriptor, nidPhoto: capturedNIDPhotoData, alreadyVoted: true, registrationTime: now.toISOString() });
             setToLS('voters', voters);
             
             alert(`Vote confirmed for ${name}!`);
@@ -526,14 +485,15 @@
             document.getElementById('add-voter-form').reset();
             stopAllStreams();
             capturedVoterFaceDescriptor = null;
+            capturedNIDPhotoData = null;
             document.getElementById('start-reg-btn').disabled = false;
             document.getElementById('capture-face-btn').disabled = true;
-            document.getElementById('scan-nid-btn').disabled = true;
+            document.getElementById('capture-nid-btn').disabled = true;
             document.getElementById('save-voter-btn').disabled = true;
             document.getElementById('voter-nid').disabled = true;
             document.getElementById('voter-name').disabled = true;
             document.getElementById('reg-status').style.display = 'none';
-            document.getElementById('scan-frame').style.display = 'none';
+            document.getElementById('nid-photo-status').style.display = 'none';
             if (document.getElementById('reg-video')) document.getElementById('reg-video').srcObject = null;
         }
 
@@ -544,10 +504,26 @@
             tableBody.innerHTML = '';
             voters.filter(v => v.name.toLowerCase().includes(searchTerm) || v.nid.includes(searchTerm)).forEach(voter => {
                 const regTime = voter.registrationTime ? new Date(voter.registrationTime).toLocaleString() : 'N/A';
-                tableBody.innerHTML += `<tr><td>${voter.nid}</td><td>${voter.name}</td><td>${regTime}</td>
-                <td><button class="btn" style="background:var(--danger-color);color:white;" onclick="deleteVoter('${voter.nid}')">Delete</button></td></tr>`;
+                tableBody.innerHTML += `<tr>
+                    <td>${voter.nid}</td>
+                    <td>${voter.name}</td>
+                    <td>${regTime}</td>
+                    <td><button class="btn" onclick="viewNIDPhoto('${voter.nid}')">View Photo</button></td>
+                    <td><button class="btn" style="background:var(--danger-color);color:white;" onclick="deleteVoter('${voter.nid}')">Delete</button></td>
+                </tr>`;
             });
         }
+        
+        function viewNIDPhoto(nid) {
+            const voter = getFromLS('voters').find(v => v.nid === nid);
+            if (voter && voter.nidPhoto) {
+                const newWindow = window.open();
+                newWindow.document.write(`<img src="${voter.nidPhoto}" style="max-width:100%;">`);
+            } else {
+                alert("No photo found for this voter.");
+            }
+        }
+        
         function deleteVoter(nid) {
             if (!confirm("Are you sure?")) return;
             setToLS('voters', getFromLS('voters').filter(v => v.nid !== nid));
