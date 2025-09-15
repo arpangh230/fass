@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voting Center Management System</title>
+    <!-- External Libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- FACE API JS -->
+    <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+    <!-- TESSERACT JS (FOR OCR) -->
+    <script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
+
+    <style>
+        /* Modern Dark Theme - Unchanged as requested */
+        :root {
+            --primary-color: #3a7bfd;
+            --secondary-color: #6c757d;
+            --bg-dark-deep: #1a1a2e;
+            --bg-dark-light: #2d2d3f;
+            --border-color: #44445a;
+            --text-primary: #ffffff;
+            --text-secondary: #a0a0b0;
+            --success-color: #34c759;
+            --danger-color: #ff4d4f;
+            --warning-color: #ff9500;
+        }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; margin: 0; background-color: var(--bg-dark-deep); color: var(--text-primary); }
+        #login-view { display: flex; justify-content: center; align-items: center; height: 100vh; background: linear-gradient(135deg, #1a1a2e, #1e1e3f); }
+        .login-container { background-color: var(--bg-dark-light); padding: 40px; border-radius: 12px; box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2); width: 100%; max-width: 400px; text-align: center; border: 1px solid var(--border-color); }
+        .input-group { margin-bottom: 20px; text-align: left; }
+        label { display: block; margin-bottom: 8px; font-weight: 600; color: var(--text-secondary); }
+        input, select, textarea { width: 100%; padding: 14px; border: 1px solid var(--border-color); border-radius: 8px; font-size: 16px; box-sizing: border-box; background-color: #1a1a2e; color: var(--text-primary); transition: border-color 0.3s, box-shadow 0.3s; }
+        input:focus, select:focus, textarea:focus { outline: none; border-color: var(--primary-color); box-shadow: 0 0 0 3px rgba(58, 123, 253, 0.25); }
+        .btn { padding: 14px 22px; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; transition: all 0.3s ease; text-transform: uppercase; }
+        .btn:disabled { cursor: not-allowed; opacity: 0.7; }
+        .btn-primary { background-color: var(--primary-color); color: white; }
+        .btn-primary:hover { background-color: #2a6bfd; transform: translateY(-2px); box-shadow: 0 4px 15px rgba(58, 123, 253, 0.3); }
+        #dashboard-view { display: flex; height: 100vh; }
+        .sidebar { width: 260px; background-color: var(--bg-dark-light); padding: 20px; flex-shrink: 0; display: flex; flex-direction: column; border-right: 1px solid var(--border-color); }
+        .sidebar h2 { text-align: center; color: var(--primary-color); }
+        .menu-item { display: flex; align-items: center; padding: 15px; font-size: 17px; color: var(--text-secondary); text-decoration: none; border-radius: 8px; margin-bottom: 10px; cursor: pointer; transition: background-color 0.3s, color 0.3s; }
+        .menu-item.active, .menu-item:hover { background-color: var(--primary-color); color: var(--text-primary); }
+        .menu-item img { width: 24px; height: 24px; margin-right: 15px; filter: invert(70%); }
+        .menu-item.active img, .menu-item:hover img { filter: invert(100%); }
+        .logout-button { width: 100%; margin-top: auto; background-color: var(--danger-color); color: white; }
+        .logout-button:hover { background-color: #ff3a3d; transform: translateY(-2px); }
+        .main-content { flex-grow: 1; padding: 40px; overflow-y: auto; }
+        .page { display: none; }
+        .page.active { display: block; animation: fadeIn 0.5s; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .card { background-color: var(--bg-dark-light); padding: 25px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1); margin-bottom: 25px; border: 1px solid var(--border-color); }
+        h1, h3 { color: var(--text-primary); }
+        h3 { border-bottom: 1px solid var(--border-color); padding-bottom: 15px; margin-top: 0; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 14px 16px; border: 1px solid var(--border-color); text-align: left; }
+        th { background-color: #1a1a2e; }
+        tr:nth-child(even) { background-color: #27273a; }
+        .grid-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 25px; }
+        .dashboard-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 25px; align-items: start; }
+        .summary-card p { font-size: 2.5em; font-weight: bold; margin: 10px 0 0; color: var(--primary-color); }
+        #video-container, #reg-video-container { width: 100%; position: relative; background-color: #000; border-radius: 8px; overflow: hidden; padding-top: 75%; }
+        #video-feed, #video-overlay, #reg-video, #capture-video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border-radius: 8px; }
+        #video-feed, #reg-video, #capture-video { object-fit: cover; }
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.7); justify-content: center; align-items: center; }
+        .modal-content { background-color: var(--bg-dark-light); margin: auto; padding: 20px; border: 1px solid var(--border-color); width: 80%; max-width: 500px; text-align: center; border-radius: 8px; }
+        .status-message { padding: 10px; border-radius: 5px; margin-top: 15px; text-align: center; font-weight: bold; }
+        .status-success { background-color: rgba(52, 199, 89, 0.2); color: var(--success-color); }
+        .status-fail { background-color: rgba(255, 77, 79, 0.2); color: var(--danger-color); }
+        .status-info { background-color: rgba(58, 123, 253, 0.2); color: var(--primary-color); }
+        /* == KEY ADDITION: Styling for the green scanning frame == */
+        #scan-frame {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 85%;
+            height: 55%;
+            transform: translate(-50%, -50%);
+            border: 3px solid var(--success-color);
+            box-shadow: 0 0 20px rgba(52, 199, 89, 0.5);
+            border-radius: 10px;
+            display: none; /* Initially hidden */
+        }
+    </style>
+</head>
+<body>
+    <!-- ALARM SOUND -->
+    <audio id="alarm-sound" src="https://www.soundjay.com/buttons/beep-01a.mp3" preload="auto"></audio>
+
+    <!-- Modal for Official Photo Capture -->
+    <div id="capture-modal" class="modal">
+        <div class="modal-content">
+            <h3>Capture Official's Photo</h3>
+            <video id="capture-video" autoplay playsinline style="width:100%; border-radius: 8px;"></video>
+            <p>Please look directly at the camera.</p>
+            <button id="capture-btn" class="btn btn-primary">Capture</button>
+            <button onclick="closeCaptureModal()" class="btn" style="background:var(--secondary-color); color:white;">Cancel</button>
+        </div>
+    </div>
+
+    <!-- =========== LOGIN VIEW =========== -->
+    <div id="login-view">
+        <div class="login-container">
+            <h1>Voting System Login</h1>
+            <form id="login-form"><div class="input-group"><label for="email">Email</label><input type="email" id="email" value="admin@example.com" required></div>
+            <div class="input-group"><label for="password">Password</label><input type="password" id="password" value="password123" required></div>
+            <button type="submit" class="btn btn-primary" style="width: 100%;">Login</button></form>
+        </div>
+    </div>
+
+    <!-- =========== DASHBOARD VIEW =========== -->
+    <div id="dashboard-view" style="display: none;">
+        <div class="sidebar">
+            <h2 id="sidebar-org-name">Polling Station</h2>
+            <a class="menu-item active" onclick="showPage('dashboard-page')"><img src="https://api.iconify.design/ic:round-dashboard.svg"> Dashboard</a>
+            <a class="menu-item" onclick="showPage('voter-page')"><img src="https://api.iconify.design/ic:round-group.svg"> Voter Management</a>
+            <a class="menu-item" onclick="showPage('official-page')"><img src="https://api.iconify.design/ic:sharp-people-alt.svg"> Official Management</a>
+            <a class="menu-item" onclick="showPage('reports-page')"><img src="https://api.iconify.design/ic:round-bar-chart.svg"> Voting Reports</a>
+            <a class="menu-item" onclick="showPage('settings-page')"><img src="https://api.iconify.design/ic:round-settings.svg"> Settings</a>
+            <button class="btn logout-button" id="logout-btn">Logout</button>
+        </div>
+
+        <div class="main-content">
+            <!-- 1️⃣ Dashboard Page -->
+            <div id="dashboard-page" class="page active">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <h1>Dashboard</h1>
+                    <button class="btn" id="stop-alarm-btn" style="background-color: var(--warning-color); display: none;" onclick="stopAlarm()">Stop Alarm</button>
+                </div>
+                <div class="grid-container">
+                    <div class="summary-card card"><h4>Total Voters</h4><p id="total-voters-count">0</p></div>
+                    <div class="summary-card card"><h4>Total Officials</h4><p id="total-officials-count">0</p></div>
+                    <div class="summary-card card"><h4>Registered Today</h4><p id="registered-today-count">0</p></div>
+                    <div class="summary-card card"><h4>Official Entries Today</h4><p id="official-entries-count">0</p></div>
+                </div>
+                
+                <div class="dashboard-grid">
+                    <div class="card"><h3>Live Duplicate Check Feed</h3>
+                        <div id="video-container"><video id="video-feed" autoplay playsinline muted></video><canvas id="video-overlay"></canvas></div>
+                    </div>
+                    <div class="card"><h3>Live Feed (Today)</h3>
+                        <div id="live-list-container" style="max-height: 450px; overflow-y: auto;">
+                            <table id="live-feed-table">
+                                <thead><tr><th>Name</th><th>Time</th><th>Status</th></tr></thead><tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2️⃣ Voter Management Page -->
+            <div id="voter-page" class="page">
+                <h1>Voter Registration & Voting</h1>
+                <div class="card">
+                    <h3>Register New Voter</h3>
+                    <div class="dashboard-grid">
+                        <div>
+                           <div id="reg-video-container">
+                                <video id="reg-video" autoplay playsinline muted></video>
+                                <div id="scan-frame"></div>
+                           </div>
+                           <div id="reg-status" class="status-message status-info" style="display: none;"></div>
+                           <div style="display: flex; gap: 10px; margin-top: 15px;">
+                               <button id="start-reg-btn" class="btn btn-primary" onclick="startVoterRegistration()">Start Registration</button>
+                               <button id="capture-face-btn" class="btn" onclick="captureVoterFace()" disabled>1. Capture Face</button>
+                               <button id="scan-nid-btn" class="btn" onclick="scanVoterNID()" disabled>2. Capture NID</button>
+                           </div>
+                        </div>
+                        <div>
+                            <form id="add-voter-form">
+                                <div class="input-group"><label for="voter-nid">NID Number</label><input type="text" id="voter-nid" required disabled></div>
+                                <div class="input-group"><label for="voter-name">Full Name (English)</label><input type="text" id="voter-name" required disabled></div>
+                                <button type="submit" id="save-voter-btn" class="btn btn-primary" style="width: 100%;" disabled>Register & Confirm Vote</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                <div class="card"><h3>Registered Voters List</h3><input type="text" id="voter-search" placeholder="Search by name or NID..." onkeyup="loadVotersIntoTable()">
+                    <table id="voter-list-table"><thead><tr><th>NID</th><th>Name</th><th>Registration Time</th><th>Actions</th></tr></thead><tbody></tbody></table>
+                </div>
+            </div>
+
+            <!-- 3️⃣ Official Management Page -->
+            <div id="official-page" class="page">
+                 <h1>Official Management</h1>
+                <div class="card"><h3>Add/Edit Official</h3>
+                    <form id="add-official-form">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                            <div class="input-group"><label for="official-name">Name</label><input type="text" id="official-name" required></div>
+                            <div class="input-group"><label for="official-id">Official ID</label><input type="text" id="official-id" required></div>
+                        </div>
+                        <div class="input-group"><label>Official Photo</label>
+                            <button type="button" class="btn" onclick="openCaptureModal()">Capture Photo</button>
+                            <span id="official-photo-status" style="margin-left: 15px; color: var(--success-color);"></span>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Save Official</button>
+                    </form>
+                </div>
+                <div class="card"><h3>Official List</h3><input type="text" id="official-search" placeholder="Search by name or ID..." onkeyup="loadOfficialsIntoTable()">
+                    <table id="official-list-table"><thead><tr><th>ID</th><th>Name</th><th>Face Registered</th><th>Actions</th></tr></thead><tbody></tbody></table>
+                </div>
+            </div>
+            
+            <!-- 4️⃣ Reports Page -->
+            <div id="reports-page" class="page">
+                 <h1>Voting Reports</h1>
+                <div class="card"><h3>Filter Reports</h3>
+                    <div style="display: flex; gap: 20px; align-items: flex-end; flex-wrap: wrap;">
+                         <div class="input-group" style="flex:1; min-width: 150px;"><label>Report Type</label>
+                            <select id="report-type"><option value="voter">Voter Report</option><option value="official">Official Entry Report</option></select>
+                        </div>
+                        <div class="input-group" style="flex:1; min-width: 150px;"><label>Date</label><input type="date" id="report-date"></div>
+                        <button class="btn btn-primary" onclick="generateReport()">Generate</button>
+                        <button class="btn" style="background-color: var(--success-color); color: white;" onclick="exportToExcel()">Excel</button>
+                        <button class="btn" style="background-color: #5865f2; color: white;" onclick="exportToPDF()">PDF</button>
+                    </div>
+                </div>
+                <div class="card"><h3>Report Data</h3><table id="report-table"><thead></thead><tbody></tbody></table></div>
+            </div>
+
+            <!-- 5️⃣ Settings Page -->
+            <div id="settings-page" class="page">
+                <h1>Settings</h1>
+                <form id="settings-form">
+                     <div class="card"><h3>Polling Station Info</h3>
+                        <div class="input-group"><label for="org-name">Station Name</label><input type="text" id="org-name"></div>
+                        <div class="input-group"><label for="org-address">Address</label><textarea id="org-address" rows="3"></textarea></div>
+                    </div>
+                     <div class="card"><h3>System Settings</h3>
+                        <div class="input-group"><label for="camera-mode">Default Registration Camera</label>
+                           <select id="camera-mode">
+                               <option value="user">Front Camera (Selfie)</option>
+                               <option value="environment">Back Camera (Main)</option>
+                           </select>
+                        </div>
+                        <div class="input-group"><label for="alarm-select">Alarm Sound</label>
+                            <select id="alarm-select">
+                                <option value="https://www.soundjay.com/buttons/beep-01a.mp3">Beep</option>
+                                <option value="https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3">Bell</option>
+                                <option value="https://www.soundjay.com/misc/sounds/siren-01.mp3">Siren</option>
+                            </select>
+                        </div>
+                        <div class="input-group"><label for="face-threshold">Face Recognition Sensitivity (lower is stricter)</label><input type="range" id="face-threshold" min="40" max="70" value="55"></div>
+                    </div>
+                     <div class="card"><h3>Developer Info</h3>
+                        <div class="input-group"><label>Software by</label><input type="text" value="Arpan Ghosh" readonly></div>
+                        <div class="input-group"><label>Phone</label><input type="text" value="+8801893398035" readonly></div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Save Settings</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- UTILITY FUNCTIONS ---
+        const getFromLS = (key, defaultValue = []) => JSON.parse(localStorage.getItem(key)) || defaultValue;
+        const setToLS = (key, data) => localStorage.setItem(key, JSON.stringify(data));
+        const getSettings = () => JSON.parse(localStorage.getItem('settings')) || {};
+
+        // --- GLOBAL VARIABLES ---
+        let capturedVoterFaceDescriptor = null;
+        let capturedOfficialFaceDescriptor = null;
+        let voterFaceMatcher = null;
+        let officialFaceMatcher = null;
+        let videoStream = null;
+        let regVideoStream = null;
+
+        // --- INITIALIZATION ---
+        document.addEventListener('DOMContentLoaded', async () => {
+            document.getElementById('report-date').valueAsDate = new Date();
+            console.log("Loading Face-API models...");
+            try {
+                await Promise.all([
+                    faceapi.nets.tinyFaceDetector.loadFromUri('https://cdn.jsdelivr.net/gh/cgarciagl/face-api.js@0.22.2/weights'),
+                    faceapi.nets.faceLandmark68Net.loadFromUri('https://cdn.jsdelivr.net/gh/cgarciagl/face-api.js@0.22.2/weights'),
+                    faceapi.nets.faceRecognitionNet.loadFromUri('https://cdn.jsdelivr.net/gh/cgarciagl/face-api.js@0.22.2/weights')
+                ]);
+                console.log("Face-API models loaded successfully");
+            } catch (error) { console.error("Error loading Face-API models:", error); alert("Could not load face recognition models."); }
+            checkLoginState();
+        });
+
+        // --- AUTHENTICATION ---
+        function checkLoginState() {
+            if (localStorage.getItem('isAdminLoggedIn') === 'true') showDashboard();
+            else {
+                document.getElementById('login-view').style.display = 'flex';
+                document.getElementById('dashboard-view').style.display = 'none';
+            }
+        }
+        document.getElementById('login-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            if (document.getElementById('email').value === "admin@example.com" && document.getElementById('password').value === "password123") {
+                localStorage.setItem('isAdminLoggedIn', 'true');
+                checkLoginState();
+            } else alert("Invalid credentials!");
+        });
+        document.getElementById('logout-btn').addEventListener('click', () => {
+            localStorage.removeItem('isAdminLoggedIn');
+            stopAllStreams();
+            checkLoginState();
+        });
+
+        // --- SPA NAVIGATION & PAGE HANDLING ---
+        function showDashboard() {
+            document.getElementById('login-view').style.display = 'none';
+            document.getElementById('dashboard-view').style.display = 'flex';
+            loadSettings();
+            updateDashboardSummary();
+            startCamera('video-feed', 'video-overlay');
+        }
+        function showPage(pageId) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.menu-item').forEach(i => i.classList.remove('active'));
+            document.getElementById(pageId).classList.add('active');
+            document.querySelector(`.menu-item[onclick="showPage('${pageId}')"]`).classList.add('active');
+            stopAllStreams();
+            if (pageId === 'voter-page') loadVotersIntoTable();
+            if (pageId === 'official-page') loadOfficialsIntoTable();
+            if (pageId === 'dashboard-page') {
+                updateDashboardSummary();
+                startCamera('video-feed', 'video-overlay');
+            }
+        }
+        
+        function stopAllStreams() {
+            if (videoStream) videoStream.getTracks().forEach(track => track.stop());
+            if (regVideoStream) regVideoStream.getTracks().forEach(track => track.stop());
+            videoStream = regVideoStream = null;
+        }
+
+        // --- ALARM SYSTEM ---
+        function triggerAlarm() {
+            document.getElementById('alarm-sound').play().catch(e => console.error("Alarm play failed:", e));
+            document.getElementById('stop-alarm-btn').style.display = 'block';
+        }
+        function stopAlarm() {
+            const alarm = document.getElementById('alarm-sound');
+            alarm.pause();
+            alarm.currentTime = 0;
+            document.getElementById('stop-alarm-btn').style.display = 'none';
+        }
+
+        // --- CAMERA & RECOGNITION ---
+        async function startCamera(videoId, canvasId) {
+            const isRegCam = videoId === 'reg-video';
+            if ((isRegCam && regVideoStream) || (!isRegCam && videoStream)) return;
+            
+            const settings = getSettings();
+            const facingMode = isRegCam ? (settings.cameraFacingMode || 'user') : 'user';
+
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode } });
+                if(isRegCam) regVideoStream = stream; else videoStream = stream;
+                
+                const video = document.getElementById(videoId);
+                video.srcObject = stream;
+                if (!isRegCam) video.addEventListener('play', () => setupFaceRecognition(video, canvasId));
+            } catch (err) { console.error("Camera Error:", err); alert("Could not access the camera."); }
+        }
+
+        async function setupFaceRecognition(video, canvasId) {
+            await loadRegisteredFaces();
+            const canvas = document.getElementById(canvasId);
+            const displaySize = { width: video.clientWidth, height: video.clientHeight };
+            faceapi.matchDimensions(canvas, displaySize);
+            const recognitionInterval = setInterval(async () => {
+                if (!video.srcObject) { clearInterval(recognitionInterval); return; }
+                const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptors();
+                const resizedDetections = faceapi.resizeResults(detections, displaySize);
+                canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+                for (const detection of resizedDetections) {
+                    let bestMatch = { label: 'unknown', distance: 1 };
+                    let personType = 'unknown';
+                    if (voterFaceMatcher) {
+                        const voterMatch = voterFaceMatcher.findBestMatch(detection.descriptor);
+                        if (voterMatch.distance < bestMatch.distance) { bestMatch = voterMatch; personType = 'voter'; }
+                    }
+                    if (officialFaceMatcher) {
+                        const officialMatch = officialFaceMatcher.findBestMatch(detection.descriptor);
+                         if (officialMatch.distance < bestMatch.distance) { bestMatch = officialMatch; personType = 'official'; }
+                    }
+                    new faceapi.draw.DrawBox(detection.detection.box, { 
+                        label: bestMatch.label === 'unknown' ? 'Unknown' : `${personType.toUpperCase()}: ${bestMatch.label.split('___')[0]}`,
+                        boxColor: bestMatch.label === 'unknown' ? 'red' : 'green'
+                    }).draw(canvas);
+                    if (bestMatch.label !== 'unknown') processFaceDetection(bestMatch.label, personType);
+                }
+            }, 1500);
+        }
+
+        async function loadRegisteredFaces() {
+            const settings = getSettings();
+            const distanceThreshold = (settings.faceThreshold || 55) / 100;
+            const voters = getFromLS('voters').filter(v => v.faceDescriptor);
+            voterFaceMatcher = voters.length > 0 ? new faceapi.FaceMatcher(voters.map(v => new faceapi.LabeledFaceDescriptors(`${v.name}___${v.nid}`, [new Float32Array(Object.values(v.faceDescriptor))])), distanceThreshold) : null;
+            const officials = getFromLS('officials').filter(o => o.faceDescriptor);
+            officialFaceMatcher = officials.length > 0 ? new faceapi.FaceMatcher(officials.map(o => new faceapi.LabeledFaceDescriptors(`${o.name}___${o.id}`, [new Float32Array(Object.values(o.faceDescriptor))])), distanceThreshold) : null;
+        }
+        
+        function processFaceDetection(label, personType) {
+            const now = new Date();
+            const [name] = label.split('___');
+            
+            if (personType === 'voter') {
+                triggerAlarm();
+                updateLiveFeed({ name, time: now.toLocaleTimeString(), status: 'Duplicate Vote Attempt' });
+            } else if (personType === 'official') {
+                const [, id] = label.split('___');
+                let officialEntries = getFromLS('officialEntries');
+                const today = now.toISOString().split('T')[0];
+                const todayEntriesCount = officialEntries.filter(e => e.officialId === id && e.date === today).length;
+                const maxEntry = parseInt(getSettings().maxEntry, 10) || 5;
+                if (todayEntriesCount >= maxEntry) {
+                    triggerAlarm();
+                    updateLiveFeed({ name, time: now.toLocaleTimeString(), status: 'Entry Limit Exceeded' });
+                } else {
+                    const lastEntry = officialEntries.find(e => e.officialId === id && (now - new Date(e.fullTime)) < 30000);
+                    if (lastEntry) return;
+                    officialEntries.push({ officialId: id, name, date: today, time: now.toLocaleTimeString(), fullTime: now.toISOString() });
+                    setToLS('officialEntries', officialEntries);
+                    updateLiveFeed({ name, time: now.toLocaleTimeString(), status: 'Entry' });
+                    updateDashboardSummary();
+                }
+            }
+        }
+        
+        function updateDashboardSummary() {
+            const allVoters = getFromLS('voters');
+            const allOfficials = getFromLS('officials');
+            const today = new Date().toISOString().split('T')[0];
+            const registeredToday = allVoters.filter(v => v.registrationTime && v.registrationTime.startsWith(today)).length;
+            const officialEntriesToday = getFromLS('officialEntries').filter(e => e.date === today).length;
+            document.getElementById('total-voters-count').innerText = allVoters.length;
+            document.getElementById('total-officials-count').innerText = allOfficials.length;
+            document.getElementById('registered-today-count').innerText = registeredToday;
+            document.getElementById('official-entries-count').innerText = officialEntriesToday;
+        }
+        
+        function updateLiveFeed(entry) {
+            const tableBody = document.querySelector("#live-feed-table tbody");
+            const newRow = tableBody.insertRow(0);
+            const statusColors = { 'Voted': 'var(--success-color)', 'Entry': 'var(--primary-color)', 'Duplicate Vote Attempt': 'var(--danger-color)', 'Entry Limit Exceeded': 'var(--warning-color)' };
+            newRow.innerHTML = `<td>${entry.name}</td><td>${entry.time}</td><td style="color: ${statusColors[entry.status] || 'white'}; font-weight: bold;">${entry.status}</td>`;
+        }
+        
+        // --- VOTER MANAGEMENT & VOTING FLOW ---
+        async function startVoterRegistration() {
+            await startCamera('reg-video');
+            updateRegStatus("Camera started. Look at the camera and click 'Capture Face'.", "info");
+            document.getElementById('capture-face-btn').disabled = false;
+            document.getElementById('start-reg-btn').disabled = true;
+        }
+
+        async function captureVoterFace() {
+            const video = document.getElementById('reg-video');
+            updateRegStatus("Capturing face...", "info");
+            const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
+            if (detection) {
+                capturedVoterFaceDescriptor = detection.descriptor;
+                updateRegStatus("Face captured! Position NID in the green frame and click 'Capture NID'.", "success");
+                document.getElementById('scan-nid-btn').disabled = false;
+                document.getElementById('capture-face-btn').disabled = true;
+                document.getElementById('voter-nid').disabled = false;
+                document.getElementById('voter-name').disabled = false;
+                document.getElementById('save-voter-btn').disabled = false;
+                document.getElementById('scan-frame').style.display = 'block';
+            } else {
+                updateRegStatus("No face detected. Please try again.", "fail");
+            }
+        }
+
+        async function scanVoterNID() {
+            const video = document.getElementById('reg-video');
+            const scanFrame = document.getElementById('scan-frame');
+            updateRegStatus("Scanning NID from frame...", "info");
+
+            const canvas = document.createElement('canvas');
+            const videoContainer = document.getElementById('reg-video-container');
+            
+            // Calculate the crop area based on the green frame's position
+            const scaleX = video.videoWidth / video.clientWidth;
+            const scaleY = video.videoHeight / video.clientHeight;
+
+            const sx = scanFrame.offsetLeft * scaleX;
+            const sy = scanFrame.offsetTop * scaleY;
+            const sWidth = scanFrame.offsetWidth * scaleX;
+            const sHeight = scanFrame.offsetHeight * scaleY;
+
+            canvas.width = sWidth;
+            canvas.height = sHeight;
+
+            // Draw the cropped part of the video onto the canvas
+            canvas.getContext('2d').drawImage(video, sx, sy, sWidth, sHeight, 0, 0, sWidth, sHeight);
+
+            try {
+                const { data: { text } } = await Tesseract.recognize(canvas, 'eng');
+                const parsedInfo = parseNIDData(text);
+                if (parsedInfo.name && parsedInfo.nid) {
+                    document.getElementById('voter-name').value = parsedInfo.name;
+                    document.getElementById('voter-nid').value = parsedInfo.nid;
+                    updateRegStatus("Scan successful! Data populated.", "success");
+                } else {
+                    updateRegStatus("Could not find Name/NID. Please enter manually.", "fail");
+                }
+            } catch (err) {
+                 console.error("OCR Error:", err);
+                 updateRegStatus("Scan failed. Please enter details manually.", "fail");
+            }
+        }
+        
+        function parseNIDData(text) {
+            console.log("--- OCR Scanned Text ---\n" + text + "\n-----------------------");
+            const nameMatch = text.match(/Name:\s*([A-Z\s\.]+)/i);
+            const nidMatch = text.match(/ID NO[:\s]*(\d{10,})/i);
+            return {
+                name: nameMatch ? nameMatch[1].trim() : null,
+                nid: nidMatch ? nidMatch[1].trim() : null
+            };
+        }
+
+        function updateRegStatus(message, type) {
+            const el = document.getElementById('reg-status');
+            el.textContent = message;
+            el.className = `status-message status-${type}`;
+            el.style.display = 'block';
+        }
+
+        document.getElementById('add-voter-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const nid = document.getElementById('voter-nid').value;
+            const name = document.getElementById('voter-name').value;
+            if (!nid || !name) { alert("NID and Name are required!"); return; }
+
+            let voters = getFromLS('voters');
+            if (voters.some(v => v.nid === nid)) {
+                alert("A voter with this NID has already voted!");
+                triggerAlarm();
+                return;
+            }
+            
+            const now = new Date();
+            voters.push({
+                nid, name,
+                faceDescriptor: capturedVoterFaceDescriptor,
+                alreadyVoted: true,
+                registrationTime: now.toISOString()
+            });
+            setToLS('voters', voters);
+            
+            alert(`Vote confirmed for ${name}!`);
+            updateLiveFeed({ name, time: now.toLocaleTimeString(), status: 'Voted' });
+            updateDashboardSummary();
+            loadRegisteredFaces();
+            resetVoterRegistration();
+            loadVotersIntoTable();
+        });
+
+        function resetVoterRegistration() {
+            document.getElementById('add-voter-form').reset();
+            stopAllStreams();
+            capturedVoterFaceDescriptor = null;
+            document.getElementById('start-reg-btn').disabled = false;
+            document.getElementById('capture-face-btn').disabled = true;
+            document.getElementById('scan-nid-btn').disabled = true;
+            document.getElementById('save-voter-btn').disabled = true;
+            document.getElementById('voter-nid').disabled = true;
+            document.getElementById('voter-name').disabled = true;
+            document.getElementById('reg-status').style.display = 'none';
+            document.getElementById('scan-frame').style.display = 'none';
+            if (document.getElementById('reg-video')) document.getElementById('reg-video').srcObject = null;
+        }
+
+        function loadVotersIntoTable() {
+            const voters = getFromLS('voters');
+            const searchTerm = document.getElementById('voter-search').value.toLowerCase();
+            const tableBody = document.querySelector("#voter-list-table tbody");
+            tableBody.innerHTML = '';
+            voters.filter(v => v.name.toLowerCase().includes(searchTerm) || v.nid.includes(searchTerm)).forEach(voter => {
+                const regTime = voter.registrationTime ? new Date(voter.registrationTime).toLocaleString() : 'N/A';
+                tableBody.innerHTML += `<tr><td>${voter.nid}</td><td>${voter.name}</td><td>${regTime}</td>
+                <td><button class="btn" style="background:var(--danger-color);color:white;" onclick="deleteVoter('${voter.nid}')">Delete</button></td></tr>`;
+            });
+        }
+        function deleteVoter(nid) {
+            if (!confirm("Are you sure? This will delete the voter and their vote record.")) return;
+            setToLS('voters', getFromLS('voters').filter(v => v.nid !== nid));
+            loadVotersIntoTable();
+            loadRegisteredFaces();
+            updateDashboardSummary();
+        }
+
+        // --- OFFICIAL MANAGEMENT ---
+        async function openCaptureModal() {
+            document.getElementById('capture-modal').style.display = 'flex';
+            const video = document.getElementById('capture-video');
+            try { video.srcObject = await navigator.mediaDevices.getUserMedia({ video: true }); } 
+            catch (err) { alert("Could not access camera."); closeCaptureModal(); }
+        }
+        function closeCaptureModal() {
+            const video = document.getElementById('capture-video');
+            if (video.srcObject) video.srcObject.getTracks().forEach(track => track.stop());
+            document.getElementById('capture-modal').style.display = 'none';
+        }
+        document.getElementById('capture-btn').addEventListener('click', async () => {
+            const video = document.getElementById('capture-video');
+            const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
+            if (detection) {
+                capturedOfficialFaceDescriptor = detection.descriptor;
+                document.getElementById('official-photo-status').innerText = "✔️ Photo Captured!";
+                closeCaptureModal();
+            } else alert("No face detected.");
+        });
+        document.getElementById('add-official-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const id = document.getElementById('official-id').value;
+            if (!id) { alert("Official ID is required!"); return; }
+            if (!capturedOfficialFaceDescriptor) { alert("Please capture a photo."); return; }
+            let officials = getFromLS('officials');
+            if (officials.some(o => o.id === id)) { alert("Official ID already exists!"); return; }
+            officials.push({ id, name: document.getElementById('official-name').value, faceDescriptor: capturedOfficialFaceDescriptor });
+            setToLS('officials', officials);
+            document.getElementById('add-official-form').reset();
+            document.getElementById('official-photo-status').innerText = "";
+            capturedOfficialFaceDescriptor = null;
+            loadOfficialsIntoTable();
+            loadRegisteredFaces();
+            updateDashboardSummary();
+        });
+        function loadOfficialsIntoTable() {
+            const officials = getFromLS('officials');
+            const searchTerm = document.getElementById('official-search').value.toLowerCase();
+            const tableBody = document.querySelector("#official-list-table tbody");
+            tableBody.innerHTML = '';
+            officials.filter(o => o.name.toLowerCase().includes(searchTerm) || o.id.includes(searchTerm)).forEach(o => {
+                tableBody.innerHTML += `<tr><td>${o.id}</td><td>${o.name}</td><td>✔️ Yes</td>
+                <td><button class="btn" style="background:var(--danger-color);color:white;" onclick="deleteOfficial('${o.id}')">Delete</button></td></tr>`;
+            });
+        }
+        function deleteOfficial(id) {
+            if (!confirm("Are you sure?")) return;
+            setToLS('officials', getFromLS('officials').filter(o => o.id !== id));
+            loadOfficialsIntoTable();
+            loadRegisteredFaces();
+            updateDashboardSummary();
+        }
+
+        // --- REPORTS & EXPORT ---
+        let reportData = [];
+        function generateReport() {
+            const reportType = document.getElementById('report-type').value;
+            const date = document.getElementById('report-date').value;
+            const tableHead = document.querySelector("#report-table thead");
+            const tableBody = document.querySelector("#report-table tbody");
+            tableBody.innerHTML = '';
+            
+            if (reportType === 'voter') {
+                reportData = getFromLS('voters')
+                    .filter(v => v.registrationTime && v.registrationTime.startsWith(date))
+                    .map(v => ({ NID: v.nid, Name: v.name, "Vote Time": new Date(v.registrationTime).toLocaleString() }));
+                tableHead.innerHTML = `<tr><th>NID</th><th>Name</th><th>Vote Time</th></tr>`;
+                reportData.forEach(rec => { tableBody.innerHTML += `<tr><td>${rec.NID}</td><td>${rec.Name}</td><td>${rec["Vote Time"]}</td></tr>`; });
+            } else {
+                const officialEntries = getFromLS('officialEntries').filter(a => a.date === date);
+                const officials = getFromLS('officials');
+                reportData = officials.map(o => {
+                    const entries = officialEntries.filter(e => e.officialId === o.id);
+                    return { ID: o.id, Name: o.name, "Entry Count": entries.length, "Entry Times": entries.map(e => e.time).join(', ') };
+                });
+                tableHead.innerHTML = `<tr><th>ID</th><th>Name</th><th>Entry Count</th><th>Entry Times</th></tr>`;
+                reportData.forEach(rec => { tableBody.innerHTML += `<tr><td>${rec.ID}</td><td>${rec.Name}</td><td>${rec["Entry Count"]}</td><td>${rec["Entry Times"]}</td></tr>`; });
+            }
+        }
+        function exportToExcel() {
+            if (reportData.length === 0) { alert("Please generate a report first."); return; }
+            const ws = XLSX.utils.json_to_sheet(reportData);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Report");
+            XLSX.writeFile(wb, "Report.xlsx");
+        }
+        function exportToPDF() {
+            if (reportData.length === 0) { alert("Please generate a report first."); return; }
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            if (reportData.length > 0) {
+                const head = [Object.keys(reportData[0])];
+                const body = reportData.map(r => Object.values(r));
+                doc.autoTable({ head, body });
+            }
+            doc.save('Report.pdf');
+        }
+        
+        // --- SETTINGS ---
+        document.getElementById('settings-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            setToLS('settings', {
+                orgName: document.getElementById('org-name').value, orgAddress: document.getElementById('org-address').value,
+                cameraFacingMode: document.getElementById('camera-mode').value,
+                alarmSound: document.getElementById('alarm-select').value,
+                faceThreshold: document.getElementById('face-threshold').value,
+            });
+            alert("Settings saved successfully!");
+            loadSettings();
+        });
+        
+        function loadSettings() {
+            const settings = getSettings();
+            document.getElementById('org-name').value = settings.orgName || 'Polling Station';
+            document.getElementById('sidebar-org-name').innerText = settings.orgName || 'Polling Station';
+            document.getElementById('org-address').value = settings.orgAddress || '';
+            document.getElementById('camera-mode').value = settings.cameraFacingMode || 'user';
+            document.getElementById('alarm-select').value = settings.alarmSound || 'https://www.soundjay.com/buttons/beep-01a.mp3';
+            document.getElementById('face-threshold').value = settings.faceThreshold || '55';
+            document.getElementById('alarm-sound').src = document.getElementById('alarm-select').value;
+            loadRegisteredFaces();
+        }
+    </script>
+</body>
+</html>
